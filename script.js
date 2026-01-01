@@ -14,6 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("clearAllBtn").onclick = clearData;
     document.getElementById("backBtn").onclick = goBack;
     document.getElementById("manualForm").onsubmit = addManualData;
+
+    // Jika impor file dipakai
+    const fileInput = document.getElementById("fileInput");
+    if (fileInput) {
+        fileInput.addEventListener("change", handleFileImport);
+    }
 });
 
 /* ==================================
@@ -32,16 +38,20 @@ function toggleVisibility(id) {
     const backBtn = document.getElementById("backBtn");
     if (!backBtn) return;
 
-    if (id === "monthView") { backBtn.classList.add("hidden"); currentView = "month"; }
-    else { backBtn.classList.remove("hidden"); currentView = (id === "employeeView") ? "employee" : "detail"; }
+    if (id === "monthView") {
+        backBtn.classList.add("hidden");
+        currentView = "month";
+    } else {
+        backBtn.classList.remove("hidden");
+        currentView = (id === "employeeView") ? "employee" : "detail";
+    }
 }
 
 /* ==================================
    FORMAT WAKTU
 ================================== */
 function formatMinutes(min) {
-    if (min === "" || min === null) return "-";
-    if (min <= 0) return "-";
+    if (!min || min <= 0) return "-";
     if (min < 60) return `${min} menit`;
     if (min === 60) return `1 jam`;
     const h = Math.floor(min / 60);
@@ -59,6 +69,7 @@ function renderMonthView() {
     container.innerHTML = "";
 
     const months = [...new Set(allRecords.map(r => r.date.substring(0, 7)))].sort().reverse();
+
     if (!months.length) {
         container.innerHTML = `<div class="col-span-full text-center py-10 text-gray-400">Belum ada data.</div>`;
         return;
@@ -86,9 +97,7 @@ function renderEmployeeView(month) {
     names.forEach(name => {
         const records = dataBulan.filter(r => r.name === name);
         let totalMinutes = 0;
-        records.forEach(r => { totalMinutes += calculateOvertime(r.date, r.clockIn, r.clockOut).netMinutes; });
-
-        const totalDisplay = formatMinutes(totalMinutes);
+        records.forEach(r => totalMinutes += calculateOvertime(r.date, r.clockIn, r.clockOut).netMinutes);
 
         const btn = document.createElement("button");
         btn.className =
@@ -100,7 +109,7 @@ function renderEmployeeView(month) {
             </div>
             <div class="text-right flex flex-col items-end">
                 <span class="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-sm font-black mb-1">
-                    ${totalDisplay}
+                    ${formatMinutes(totalMinutes)}
                 </span>
                 <span class="text-purple-300 text-[10px] font-bold uppercase tracking-wider">Detail →</span>
             </div>`;
@@ -128,57 +137,48 @@ function renderDetailView(month, name) {
 
     for (let d = 1; d <= lastDay; d++) {
         const dateStr = `${month}-${String(d).padStart(2,"0")}`;
-        const dateObj = new Date(dateStr);
-        const dayIdx = dateObj.getDay();
-        const dayName = dayNames[dayIdx];
-
-        if (dayIdx === 0) continue;
+        const idx = new Date(dateStr).getDay();
+        if (idx === 0) continue;
 
         const record = userRecords.find(r => r.date === dateStr);
+        const dayName = dayNames[idx];
 
         if (record) {
             const calc = calculateOvertime(record.date, record.clockIn, record.clockOut);
             totalMinutes += calc.netMinutes;
 
             tbody.innerHTML += `
-            <tr class="border-b hover:bg-gray-50 transition">
-              <td class="p-4 text-sm font-medium text-gray-700">${record.date}</td>
-              <td class="p-4 text-xs font-bold text-gray-500 uppercase text-center">${dayName}</td>
-              <td class="p-4 font-mono text-center text-gray-600">${record.clockIn}</td>
-              <td class="p-4 font-mono text-center text-gray-600">${record.clockOut || ""}</td>
-              <td class="p-4 text-center text-orange-600 font-bold text-xs">${formatMinutes(calc.sisaWaktuKerja)}</td>
-              <td class="p-4 text-xs font-bold ${calc.color} text-center">${calc.detail}</td>
-              <td class="p-4 font-black text-purple-700 text-center text-lg">${calc.display}</td>
+            <tr class="border-b hover:bg-gray-50">
+                <td class="p-4 text-sm font-medium">${record.date}</td>
+                <td class="p-4 text-xs font-bold text-center">${dayName}</td>
+                <td class="p-4 font-mono text-center">${record.clockIn}</td>
+                <td class="p-4 font-mono text-center">${record.clockOut || ""}</td>
+                <td class="p-4 text-center text-orange-600 font-bold text-xs">${formatMinutes(calc.sisaWaktuKerja)}</td>
+                <td class="p-4 text-xs font-bold ${calc.color} text-center">${calc.detail}</td>
+                <td class="p-4 font-black text-purple-700 text-center text-lg">${calc.display}</td>
             </tr>`;
         } else {
             tbody.innerHTML += `
-            <tr class="border-b bg-red-50 hover:bg-red-100 transition">
-              <td class="p-4 text-sm font-medium text-red-600">${dateStr}</td>
-              <td class="p-4 text-xs font-bold text-red-400 uppercase text-center">${dayName}</td>
-              <td colspan="3" class="p-4 text-center text-red-500 font-bold italic text-xs tracking-widest">
-                ⚠️ TIDAK ADA DATA SCAN (ALPA)
-              </td>
-              <td class="p-4 text-center text-red-500 font-bold text-xs">-</td>
-              <td class="p-4 font-black text-red-600 text-center text-lg">0</td>
+            <tr class="border-b bg-red-50">
+                <td class="p-4 font-medium text-red-600">${dateStr}</td>
+                <td class="p-4 text-xs font-bold text-red-400 text-center">${dayName}</td>
+                <td colspan="3" class="p-4 text-center text-red-500 font-bold italic text-xs">
+                    ⚠️ TIDAK ADA DATA SCAN (ALPA)
+                </td>
+                <td class="p-4 text-center text-red-500 font-bold text-xs">-</td>
+                <td class="p-4 font-black text-red-600 text-center text-lg">0</td>
             </tr>`;
         }
     }
 
-    // Tambah tombol cetak PDF (selalu pasang listener)
-    const existingBtn = document.getElementById("printBtn");
-    if (!existingBtn) {
-        const container = document.createElement("div");
-        container.className = "my-4 text-right";
-        const btn = document.createElement("button");
-        btn.id = "printBtn";
-        btn.className = "bg-green-600 text-white px-4 py-2 rounded-xl font-bold";
-        btn.innerText = "🖨️ Cetak PDF";
-        container.appendChild(btn);
-        document.getElementById("detailView").prepend(container);
-        btn.onclick = () => printEmployeePDF(name, month, totalMinutes);
-    } else {
-        existingBtn.onclick = () => printEmployeePDF(name, month, totalMinutes);
-    }
+    // tombol cetak
+    const btn = document.getElementById("printBtn") || document.createElement("button");
+    btn.id = "printBtn";
+    btn.className = "bg-green-600 text-white px-4 py-2 rounded-xl font-bold my-3";
+    btn.innerText = "🖨️ Cetak PDF";
+    btn.onclick = () => printEmployeePDF(name, month, totalMinutes);
+
+    document.getElementById("detailView").prepend(btn);
 }
 
 /* ==================================
@@ -190,35 +190,24 @@ function calculateOvertime(date, clockIn, clockOut) {
     const toM = t => { const [h,m]=t.split(":").map(Number); return h*60+m; };
 
     const inM = clockIn ? toM(clockIn) : 0;
-    let workStart = 8 * 60;
-    let workEnd = (day === 6) ? 14 * 60 : 17 * 60;
+    const workStart = 8 * 60;
+    const workEnd = (day === 6) ? 14 * 60 : 17 * 60;
 
     if (!clockOut) {
-        const sisaNormal = workEnd - inM;
-        return {
-            netMinutes: 0,
-            detail: "-",
-            display: "-",
-            color: "text-gray-300",
-            sisaWaktuKerja: sisaNormal > 0 ? sisaNormal : 0
-        };
+        return { netMinutes: 0, detail: "-", display: "-", color: "text-gray-300", sisaWaktuKerja: Math.max(0, workEnd - inM) };
     }
 
     const outM = toM(clockOut);
     const overtimeM = Math.max(0, outM - workEnd);
     const lateM = Math.max(0, inM - workStart);
-    const sisaWaktuKerja = Math.max(0, lateM - overtimeM);
 
-    let netM = overtimeM - lateM;
-    if (netM < 0) netM = 0;
-
-    const detail = formatMinutes(netM);
+    const netM = Math.max(0, overtimeM - lateM);
     return {
         netMinutes: netM,
-        detail,
-        display: detail,
+        detail: formatMinutes(netM),
+        display: formatMinutes(netM),
         color: netM > 0 ? "text-green-600" : "text-gray-300",
-        sisaWaktuKerja
+        sisaWaktuKerja: Math.max(0, lateM - overtimeM)
     };
 }
 
@@ -240,10 +229,7 @@ function clearData() {
 
 function addManualData(e) {
     e.preventDefault();
-    const n = document.getElementById("empName").value;
-    const d = document.getElementById("empDate").value;
-    const i = document.getElementById("empClockIn").value;
-    const o = document.getElementById("empClockOut").value;
+    const n = empName.value, d = empDate.value, i = empClockIn.value, o = empClockOut.value;
 
     let rec = allRecords.find(r => r.name.toLowerCase() === n.toLowerCase() && r.date === d);
     if (!rec) allRecords.push({ name: n, date: d, clockIn: i, clockOut: o });
@@ -253,22 +239,37 @@ function addManualData(e) {
     e.target.reset();
 }
 
+/* ==================================
+   IMPORT FILE + TEXT
+================================== */
+function handleFileImport(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        document.getElementById("textInput").value = reader.result;
+        alert("File berhasil dimuat — silakan klik PROSES DATA");
+    };
+    reader.readAsText(file);
+}
+
 function processTextData() {
-    const textInput = document.getElementById("textInput");
-    const text = textInput.value.trim();
-    if (!text) return alert("Kotak teks masih kosong!");
+    const text = (textInput.value || "").trim();
+    if (!text) return alert("Tidak ada data yang bisa diproses.");
 
     const lines = text.split("\n");
     let added = 0;
 
-    lines.forEach(line => {
-        if (!line.trim()) return;
+    for (const line of lines) {
+        if (!line.trim()) continue;
+
         const clean = line.replace(/[\u00A0\u1680​\u180e\u2000-\u200b\u202f\u205f\u3000]/g, " ");
         const parts = clean.trim().split(/\s+/);
 
         const dateIndex = parts.findIndex(p => /^\d{4}-\d{2}-\d{2}$/.test(p));
         const timeIndex = parts.findIndex(p => /^\d{2}:\d{2}/.test(p));
-        if (dateIndex === -1 || timeIndex === -1) return;
+        if (dateIndex === -1 || timeIndex === -1) continue;
 
         const name = parts[3] || "Karyawan";
         const date = parts[dateIndex];
@@ -282,44 +283,37 @@ function processTextData() {
             if (!rec.clockOut || time > rec.clockOut) rec.clockOut = time;
         }
         added++;
-    });
-
-
-
-
-    
-    if (added > 0) {
-        saveAndRefresh();
-        alert(`Berhasil memproses ${added} baris data!`);
-        textInput.value = "";
     }
+
+    if (!added) return alert("File terbaca, tetapi tidak ada baris valid.");
+    saveAndRefresh();
+    alert(`Berhasil memproses ${added} baris data!`);
+    textInput.value = "";
 }
 
 /* ==================================
-   CETAK PDF
+   CETAK PDF (STABIL)
 ================================== */
-function printEmployeePDF(name, month, totalMinutes) {
+function printEmployeePDF(name, month) {
     if (!window.jspdf || !window.html2canvas) {
-        alert("jsPDF atau html2canvas belum di-load!");
+        alert("Library jsPDF / html2canvas belum dimuat.");
         return;
     }
 
-    const detailView = document.getElementById("detailView");
-    const clone = detailView.cloneNode(true);
-    clone.querySelectorAll("#printBtn").forEach(b => b.remove());
+    const { jsPDF } = window.jspdf;
+    const source = document.getElementById("detailView");
 
-    html2canvas(clone, { scale: 2 }).then(canvas => {
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jspdf.jsPDF('p', 'mm', 'a4'); // pake UMD namespace
+    html2canvas(source, { scale: 2 })
+        .then(canvas => {
+            const pdf = new jsPDF("p","mm","a4");
+            const pageW = pdf.internal.pageSize.getWidth();
+            const imgH = (canvas.height * pageW) / canvas.width;
 
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const imgProps = pdf.getImageProperties(imgData);
-        const pdfHeight = (imgProps.height * pageWidth) / imgProps.width;
-
-        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pdfHeight);
-        pdf.save(`Rekap-Lembur-${name}-${month}.pdf`);
-    }).catch(err => {
-        console.error(err);
-        alert("Gagal membuat PDF, silakan coba lagi!");
-    });
+            pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, pageW, imgH);
+            pdf.save(`Rekap-Lembur-${name}-${month}.pdf`);
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Gagal membuat PDF, silakan coba lagi!");
+        });
 }
