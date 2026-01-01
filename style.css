@@ -5,13 +5,18 @@
     padding: 0;
 }
 
+html, body {
+    width: 100%;
+    min-height: 100%;
+}
+
 body { 
     font-family: 'Inter', sans-serif !important; 
     scroll-behavior: smooth; 
     min-height: 100vh;
     color: #1f2937;
     overflow-x: hidden;
-    
+
     /* BACKGROUND SETTINGS */
     background-color: #1e1b4b !important; 
     background-image: 
@@ -31,6 +36,10 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
     border-radius: 14px;
+    width: 100%;
+    max-width: 980px;
+    margin-inline: auto;
+    overflow: visible !important;
 }
 
 /* 3. Header Styling */
@@ -38,6 +47,7 @@ body {
     display: grid !important;
     grid-template-columns: auto 1fr auto !important;
     align-items: center !important;
+    gap: 1rem;
 }
 
 @media (max-width: 768px) {
@@ -110,7 +120,7 @@ button:active {
 /* 7. View Transitions */
 @view-transition { navigation: auto; }
 
-/* 8. WATERMARK — tetap di luar card & selalu terlihat */
+/* 8. WATERMARK */
 .watermark {
     position: fixed;
     bottom: 12px;
@@ -120,11 +130,61 @@ button:active {
     font-weight: 600;
     letter-spacing: .3px;
     opacity: .75;
-    
-    /* agar kontras di background gelap */
     color: #f9fafb;
     text-shadow: 0 2px 6px rgba(0,0,0,.55);
-    
     pointer-events: none;
     z-index: 9999;
+}
+
+/* ============================= */
+/*       PRINT / PDF FIX         */
+/* ============================= */
+
+/* Halaman A4 agar tidak ikut ukuran layar HP */
+@page {
+    size: A4 portrait;
+    margin: 10mm;
+}
+
+/* Mode cetak dibuat rapi & tidak terpotong */
+@media print {
+
+    html, body {
+        background: #ffffff !important;
+        background-image: none !important;
+        overflow: visible !important;
+    }
+
+    .glass-container {
+        max-width: 100% !important;
+        width: 100% !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+    }
+
+    /* Pastikan tabel & konten tidak terpotong */
+    table, tr, td, th {
+        page-break-inside: avoid !important;
+        overflow: visible !important;
+        white-space: normal !important;
+    }
+
+    /* Hilangkan efek transform yang bikin sisi terpotong */
+    #detailTableBody tr,
+    #detailTableBody tr:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Watermark tetap tampil */
+    .watermark {
+        position: fixed !important;
+        opacity: .55 !important;
+    }
+
+    /* Sembunyikan elemen UI yang tidak perlu dicetak */
+    .no-print {
+        display: none !important;
+    }
 }
