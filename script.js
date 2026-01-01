@@ -290,11 +290,10 @@ function processTextData(){
 }
 
 /* ==================================
-   CETAK PDF (MULTI PAGE & STABIL)
+   CETAK PDF (A4 LANDSCAPE • MOBILE SAFE)
 ================================== */
 async function printEmployeePDF(name, month) {
 
-  // Pastikan library ada
   if (!window.jspdf || !window.html2canvas) {
     alert("Library jsPDF / html2canvas belum dimuat.");
     return;
@@ -304,43 +303,104 @@ async function printEmployeePDF(name, month) {
     const { jsPDF } = window.jspdf;
     const source = document.getElementById("detailView");
 
-    // Clone agar tombol / header tidak ikut kacau
+    // Clone agar stabil & tidak ikut layout layar
     const clone = source.cloneNode(true);
     clone.style.background = "#ffffff";
     clone.style.padding = "20px";
+    clone.style.width = "1200px";   // paksa lebar tetap agar tidak kepotong
 
     document.body.appendChild(clone);
 
     const canvas = await html2canvas(clone, {
       scale: 2,
-      useCORS: true
+      useCORS: true,
+      scrollX: 0,
+      scrollY: -window.scrollY
     });
 
     document.body.removeChild(clone);
 
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
+    const pdf = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4"
+    });
 
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
 
-    const imgW = pageW;
-    const imgH = (canvas.height * imgW) / canvas.width;
+    const margin = 10;
+    const usableW = pageW - margin * 2;
 
-    let position = 0;
-    let heightLeft = imgH;
+    // skala gambar (fit lebar halaman)
+    const imgWmm = usableW;
+    const pxPerMm = canvas.width / imgWmm;
 
-    pdf.addImage(imgData, "PNG", 0, position, imgW, imgH);
-    heightLeft -= pageH;
+    // tinggi konten per halaman (mm→px)
+    const headerMm = 24;
+    const contentMm = pageH - headerMm - margin;
+    const sliceHeightPx = Math.floor(contentMm * pxPerMm);
 
-    while (heightLeft > 0) {
-      pdf.addPage();
-      position = heightLeft - imgH;
-      pdf.addImage(imgData, "PNG", 0, position, imgW, imgH);
-      heightLeft -= pageH;
+    let sliceY = 0;
+    let pageIndex = 0;
+
+    while (sliceY < canvas.height) {
+
+      if (pageIndex > 0) pdf.addPage();
+
+      // ===== HEADER =====
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.text(`REKAP LEMBUR — ${name}`, margin, 12);
+
+      pdf.setFontSize(11);
+      pdf.text(`Periode: ${month}`, margin, 18);
+
+      // ===== POTONG KANVAS PER HALAMAN =====
+      const pageCanvas = document.createElement("canvas");
+      const pageCtx = pageCanvas.getContext("2d");
+
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = Math.min(sliceHeightPx, canvas.height - sliceY);
+
+      pageCtx.drawImage(
+        canvas,
+        0, sliceY,
+        canvas.width, pageCanvas.height,
+        0, 0,
+        canvas.width, pageCanvas.height
+      );
+
+      const imgData = pageCanvas.toDataURL("image/png");
+      const imgHmm = (pageCanvas.height / pxPerMm); // tinggi dalam mm
+
+      pdf.addImage(
+        imgData,
+        "PNG",
+        margin,
+        headerMm,
+        imgWmm,
+        imgHmm
+      );
+
+      sliceY += sliceHeightPx;
+      pageIndex++;
     }
 
-    pdf.save(`Rekap-Lembur-${name}-${month}.pdf`);
+    // ===== SIMPAN VIA BLOB (AMAN UNTUK HP & PC) =====
+    const blob = pdf.output("blob");
+    const filename = `Rekap-Lembur-${name}-${month}.pdf`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(url);
 
   } catch (err) {
     console.error("PDF ERROR:", err);
